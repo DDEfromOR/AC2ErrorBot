@@ -1,0 +1,35 @@
+﻿{
+  "type": "AdaptiveCard",
+  "appId": "11111111-1111-1111-1111-111111111111",
+  "body": [
+    {
+      "type": "TextBlock",
+      "text": "Example Card!",
+      "horizontalAlignment": "Center",
+      "size": "Large",
+      "weight": "Bolder"
+    },
+    {
+      "type": "TextBlock",
+      "text": "This is a very boring card!",
+      "horizontalAlignment": "Center"
+    },
+    {
+      "type": "ActionSet",
+      "actions": [
+        {
+          "type": "Action.Execute",
+          "title": "Go Back",
+          "verb": "err",
+          "data": {
+            "nextCardToSend": 11,
+            "currentCard": 12,
+            "option": ""
+          }
+        }
+      ]
+    }
+  ],
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "version": "1.2"
+}
