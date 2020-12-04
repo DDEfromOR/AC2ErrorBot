@@ -331,7 +331,7 @@ namespace Catering
 
         private AdaptiveCardInvokeResponse LoginRequestResponse()
         {
-            return new AdaptiveCardInvokeResponse() { StatusCode = 401, Type = "application/vnd.microsoft.activity.loginRequest", Value = new AdaptiveCardLoginRequest() { LoginUrl = "www.contoso.com/login.html" } };
+            return new AdaptiveCardInvokeResponse() { StatusCode = 401, Type = "application/vnd.microsoft.activity.loginRequest", Value = new AdaptiveCardLoginRequest() { loginUrl = "www.contoso.com/login.html" } };
         }
 
         private AdaptiveCardInvokeResponse ThrottleWarningResponse()
