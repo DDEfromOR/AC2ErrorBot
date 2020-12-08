@@ -25,7 +25,7 @@
         {
           "type": "Column",
           "width": "stretch",
-          "length":  "stretch",
+          "length": "stretch",
           "verticalContentAlignment": "Center",
           "items": [
             {
@@ -109,5 +109,5 @@
     }
   ],
   "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-  "version": "1.2"
+  "version": "2.3"
 }
