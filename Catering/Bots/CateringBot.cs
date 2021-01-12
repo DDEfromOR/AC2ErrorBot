@@ -20,6 +20,9 @@ using Microsoft.Bot.AdaptiveCards;
 using System.Linq;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Bot.Builder.Dialogs;
+using Microsoft.Azure.Cosmos.Linq;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Bot.Connector.Authentication;
 
 namespace Catering
 {
@@ -41,13 +44,21 @@ namespace Catering
         private CateringDb _cateringDb;
         private readonly CateringRecognizer _cateringRecognizer;
         private readonly Dialog _dialog;
+        private readonly AdaptiveCardOAuthHandler _botAppHandler = new AdaptiveCardOAuthHandler("BotApp", "Sign-In To Bot App", "Sign-In");
+        private readonly IConfiguration _configuration;
 
-        public CateringBot(UserState userState, CateringDb cateringDb, CateringRecognizer cateringRecognizer, TDialog dialog)
+        public CateringBot(IConfiguration configuration, UserState userState, CateringDb cateringDb, CateringRecognizer cateringRecognizer, TDialog dialog)
         {
+            _configuration = configuration;
             _userState = userState;
             _cateringDb = cateringDb;
             _cateringRecognizer = cateringRecognizer;
             _dialog = dialog;
+
+            var oauthCredential = new MicrosoftAppCredentials(
+                _configuration.GetSection("MicrosoftAppId")?.Value,
+                _configuration.GetSection("MicrosoftAppPassword")?.Value);
+            _botAppHandler = new AdaptiveCardOAuthHandler("BotApp", "Sign-In To Bot App", "Sign-In", oauthCredential);
         }
 
         public override async Task OnTurnAsync(ITurnContext turnContext, CancellationToken cancellationToken = default(CancellationToken))
@@ -80,7 +91,59 @@ namespace Catering
 
         protected override async Task<InvokeResponse> OnInvokeActivityAsync(ITurnContext<IInvokeActivity> turnContext, CancellationToken cancellationToken)
         {
-            if (AdaptiveCardInvokeValidator.IsAdaptiveCardAction(turnContext))
+            var oauthCommandsProperty = _userState.CreateProperty<OAuthCommands>(nameof(OAuthCommands));
+            var oauthCommands = await oauthCommandsProperty.GetAsync(turnContext, () => new OAuthCommands() { StartedNominalAuth = false, StartedSSOAuth = false });
+
+            if (AdaptiveCardOAuthHandler.IsOAuthInvoke(turnContext))
+            {
+                if(oauthCommands.StartedNominalAuth)
+                {
+                    oauthCommands.StartedNominalAuth = false;
+                    await oauthCommandsProperty.SetAsync(turnContext, oauthCommands);
+
+                    var result = await _botAppHandler.GetUserTokenAsync(turnContext, _userState);
+
+                    if (result.InvokeResponse != null)
+                    {
+                        return CreateInvokeResponse(HttpStatusCode.OK, result.InvokeResponse);
+                    }
+                    else
+                    {
+                        return CreateInvokeResponse(HttpStatusCode.OK, new AdaptiveCardInvokeResponse()
+                        {
+                            StatusCode = 200,
+                            Type = AdaptiveCardsConstants.Message,
+                            Value = $"Received a token right away for sso oauth: ${result.TokenResponse.Token}"
+                        });
+                    }
+                }
+                else if (oauthCommands.StartedSSOAuth)
+                {
+                    oauthCommands.StartedSSOAuth = false;
+                    await oauthCommandsProperty.SetAsync(turnContext, oauthCommands);
+
+                    var result = await _botAppHandler.GetUserTokenAsync(turnContext, _userState);
+
+                    if (result.InvokeResponse != null)
+                    {
+                        return CreateInvokeResponse(HttpStatusCode.OK, result.InvokeResponse);
+                    }
+                    else
+                    {
+                        return CreateInvokeResponse(HttpStatusCode.OK, new AdaptiveCardInvokeResponse()
+                        {
+                            StatusCode = 200,
+                            Type = AdaptiveCardsConstants.Message,
+                            Value = $"Received a token right away for sso oauth: ${result.TokenResponse.Token}"
+                        });
+                    }
+                }
+                else
+                {
+                    return CreateInvokeResponse(HttpStatusCode.BadRequest, new Error("400", $"Received an invoke with name ${turnContext.Activity.Name} but not as a result of a loginRequest"));
+                }
+            }
+            else if (AdaptiveCardInvokeValidator.IsAdaptiveCardAction(turnContext))
             {
                 var userSA = _userState.CreateProperty<User>(nameof(User));
                 var user = await userSA.GetAsync(turnContext, () => new User() { Id = turnContext.Activity.From.Id });
@@ -101,6 +164,30 @@ namespace Catering
                     if (request.Action.Verb == "err")
                     {
                         var responseBody = await ProcessErrAction(user, cardOptions);
+
+                        return CreateInvokeResponse(HttpStatusCode.OK, responseBody);
+                    }
+                    else if (request.Action.Verb == "nominal-oauth")
+                    {
+                        oauthCommands.StartedNominalAuth = true;
+                        await oauthCommandsProperty.SetAsync(turnContext, oauthCommands);
+
+                        var responseBody = await ProcessNominalOAuth(turnContext);
+
+                        return CreateInvokeResponse(HttpStatusCode.OK, responseBody);
+                    }
+                    else if (request.Action.Verb == "sso-oauth")
+                    {
+                        oauthCommands.StartedSSOAuth = true;
+                        await oauthCommandsProperty.SetAsync(turnContext, oauthCommands);
+
+                        var responseBody = await ProcessSSOOAuth(turnContext);
+
+                        return CreateInvokeResponse(HttpStatusCode.OK, responseBody);
+                    }
+                    else if (request.Action.Verb == "signout")
+                    {
+                        var responseBody = await ProcessSignout(turnContext);
 
                         return CreateInvokeResponse(HttpStatusCode.OK, responseBody);
                     }
@@ -204,6 +291,49 @@ namespace Catering
             }
 
             return responseBody;
+        }
+
+        private async Task<AdaptiveCardInvokeResponse> ProcessNominalOAuth(ITurnContext turnContext)
+        {
+            var result = await _botAppHandler.GetUserTokenAsync(turnContext, _userState);
+
+            if (result.InvokeResponse != null)
+            {
+                return result.InvokeResponse;
+            }
+            else
+            {
+                return new AdaptiveCardInvokeResponse() { 
+                    StatusCode = 200,
+                    Type = AdaptiveCardsConstants.Message, 
+                    Value = $"Received a token right away for nominal oauth: ${result.TokenResponse.Token}" };
+            }
+        }
+
+        private async Task<AdaptiveCardInvokeResponse> ProcessSSOOAuth(ITurnContext turnContext)
+        {
+            var result = await _botAppHandler.GetUserTokenAsync(turnContext, _userState);
+
+            if (result.InvokeResponse != null)
+            {
+                return result.InvokeResponse;
+            }
+            else
+            {
+                return new AdaptiveCardInvokeResponse()
+                {
+                    StatusCode = 200,
+                    Type = AdaptiveCardsConstants.Message,
+                    Value = $"Received a token right away for sso oauth: ${result.TokenResponse.Token}"
+                };
+            }
+        }
+
+        private async Task<AdaptiveCardInvokeResponse> ProcessSignout(ITurnContext turnContext)
+        {
+            var result = await _botAppHandler.SignoutAsync(turnContext, _userState);
+
+            return result.InvokeResponse;
         }
 
         private static InvokeResponse CreateInvokeResponse(HttpStatusCode statusCode, object body = null)
@@ -321,17 +451,19 @@ namespace Catering
 
         private AdaptiveCardInvokeResponse OkWithMessageResponse()
         {
-                return new AdaptiveCardInvokeResponse() { StatusCode = 200, Type = "application/vnd.microsoft.activity.message", Value = "This is an error message string." };
+                return new AdaptiveCardInvokeResponse() { StatusCode = 200, Type = AdaptiveCardsConstants.Message, Value = "This is an error message string." };
         }
 
         private AdaptiveCardInvokeResponse OkWithCardResponse()
         {
-            return new AdaptiveCardInvokeResponse() { StatusCode = 200, Type = "application/vnd.microsoft.card.adaptive", Value = new CardResource("BlandCard.json").AsJson() };
+            //return CardResponse("BlandCard.json");
+            return new AdaptiveCardInvokeResponse() { StatusCode = 200, Type = AdaptiveCard.ContentType, Value = new CardResource("BlandCard.json").AsJObject() };
         }
 
         private AdaptiveCardInvokeResponse LoginRequestResponse()
         {
-            return new AdaptiveCardInvokeResponse() { StatusCode = 401, Type = "application/vnd.microsoft.activity.loginRequest", Value = new AdaptiveCardLoginRequest() { LoginUrl = "www.contoso.com/login.html" } };
+            //return new AdaptiveCardInvokeResponse() { StatusCode = 401, Type = "application/vnd.microsoft.activity.loginRequest", Value = new OAuthCard() { ConnectionName = "Foo", Text = "Sign In", Buttons = new List<CardAction>() { new CardAction() { Value = "www.contoso.com/login.html", Text = "Sign In", Type = ActionTypes.Signin } } } };
+            return new AdaptiveCardInvokeResponse() { StatusCode = 401, Type = AdaptiveCardsConstants.LoginRequest, Value = "beep" };
         }
 
         private AdaptiveCardInvokeResponse ThrottleWarningResponse()
@@ -340,14 +472,21 @@ namespace Catering
         }
         private AdaptiveCardInvokeResponse TeapotResponse()
         {
-            return new AdaptiveCardInvokeResponse() { StatusCode = 418, Type = "application/vnd.microsoft.error", Value = new Error("418", "I am a little teapot.") };
+            return new AdaptiveCardInvokeResponse() { StatusCode = 418, Type = AdaptiveCardsConstants.Error, Value = new Error("418", "I am a little teapot.") };
         }
 
         private AdaptiveCardInvokeResponse BotErrorResponse()
         {
-            return new AdaptiveCardInvokeResponse() { StatusCode = 418, Type = "application/vnd.microsoft.error", Value = new Error("500", "Bot has encountered an error.") };
+            return new AdaptiveCardInvokeResponse() { StatusCode = 418, Type = AdaptiveCardsConstants.Error, Value = new Error("500", "Bot has encountered an error.") };
         }
 
         #endregion
+    }
+
+    public class OAuthCommands
+    {
+        public bool StartedNominalAuth { get; set; }
+
+        public bool StartedSSOAuth { get; set; }
     }
 }
