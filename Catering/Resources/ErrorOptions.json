@@ -106,6 +106,35 @@
           ]
         }
       ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "OAuth Commands",
+      "size": "medium"
+    },
+    {
+      "type": "ActionSet",
+      "actions": [
+        {
+          "type": "Action.Execute",
+          "verb": "nominal-oauth",
+          "title": "Nominal OAuth",
+          "data": {
+          }
+        }
+      ]
+    },
+    {
+      "type": "ActionSet",
+      "actions": [
+        {
+          "type": "Action.Execute",
+          "verb": "sso-oauth",
+          "title": "SSO OAuth",
+          "data": {
+          }
+        }
+      ]
     }
   ],
   "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
