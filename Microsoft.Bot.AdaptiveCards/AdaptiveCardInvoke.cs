@@ -10,5 +10,8 @@ namespace Microsoft.Bot.AdaptiveCards
     {
         [JsonProperty("action")]
         public AdaptiveCardAction Action { get; set; }
+
+        [JsonProperty("authentication")]
+        public AdaptiveCardAuthentication Authentication { get; set; }
     }
 }

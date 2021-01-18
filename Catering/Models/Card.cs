@@ -14,7 +14,6 @@ namespace Catering.Models
         Confirmation = 4,
         OkWithString = 5,
         OkWithCard = 6, // refreshes to a blank card, need to make a real card for this
-        LoginRequest = 7,
         ThrottleWarning = 8, // got a 500 from directline??
         Teapot = 9, // Got a 502 back from directline
         Error = 10,
