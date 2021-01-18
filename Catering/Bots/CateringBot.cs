@@ -45,6 +45,7 @@ namespace Catering
         private readonly CateringRecognizer _cateringRecognizer;
         private readonly Dialog _dialog;
         private readonly AdaptiveCardOAuthHandler _botAppHandler = new AdaptiveCardOAuthHandler("BotApp", "Sign-In To Bot App", "Sign-In");
+        private readonly AdaptiveCardOAuthHandler _nonSsoHandler = new AdaptiveCardOAuthHandler("NonSsoApp", "Sign-In To Bot App", "Sign-In");
         private readonly IConfiguration _configuration;
 
         public CateringBot(IConfiguration configuration, UserState userState, CateringDb cateringDb, CateringRecognizer cateringRecognizer, TDialog dialog)
@@ -59,7 +60,8 @@ namespace Catering
                 _configuration.GetSection("MicrosoftAppId")?.Value,
                 _configuration.GetSection("MicrosoftAppPassword")?.Value);
             _botAppHandler = new AdaptiveCardOAuthHandler("BotApp", "Sign-In To Bot App", "Sign-In", oauthCredential);
-        }
+            _nonSsoHandler = new AdaptiveCardOAuthHandler("NonSsoApp", "Sign-In To Bot App", "Sign-In", oauthCredential);
+    }
 
         public override async Task OnTurnAsync(ITurnContext turnContext, CancellationToken cancellationToken = default(CancellationToken))
         {
@@ -101,7 +103,7 @@ namespace Catering
                     oauthCommands.StartedNominalAuth = false;
                     await oauthCommandsProperty.SetAsync(turnContext, oauthCommands);
 
-                    var result = await _botAppHandler.GetUserTokenAsync(turnContext, _userState);
+                    var result = await _nonSsoHandler.GetUserTokenAsync(turnContext, _userState);
 
                     if (result.InvokeResponse != null)
                     {
@@ -178,12 +180,30 @@ namespace Catering
                     }
                     else if (request.Action.Verb == "sso-oauth")
                     {
-                        oauthCommands.StartedSSOAuth = true;
-                        await oauthCommandsProperty.SetAsync(turnContext, oauthCommands);
+                        if (request.Authentication != null && !string.IsNullOrEmpty(request.Authentication.Token))
+                        {
+                            // already started the oauth flow
+                            oauthCommands.StartedSSOAuth = false;
+                            await oauthCommandsProperty.SetAsync(turnContext, oauthCommands);
 
-                        var responseBody = await ProcessSSOOAuth(turnContext);
+                            var result = await _botAppHandler.GetUserTokenAsync(turnContext, _userState);
 
-                        return CreateInvokeResponse(HttpStatusCode.OK, responseBody);
+                            return CreateInvokeResponse(HttpStatusCode.OK, new AdaptiveCardInvokeResponse()
+                            {
+                                StatusCode = 200,
+                                Type = AdaptiveCardsConstants.Message,
+                                Value = $"Completed SSO token exchange and now have a user token: ${result.TokenResponse.Token}"
+                            });
+                        }
+                        else
+                        {
+                            oauthCommands.StartedSSOAuth = true;
+                            await oauthCommandsProperty.SetAsync(turnContext, oauthCommands);
+
+                            var responseBody = await ProcessSSOOAuth(turnContext);
+
+                            return CreateInvokeResponse(HttpStatusCode.OK, responseBody);
+                        }
                     }
                     else if (request.Action.Verb == "signout")
                     {
@@ -274,9 +294,6 @@ namespace Catering
                 case Card.OkWithCard:
                     responseBody = OkWithCardResponse();
                     break;
-                case Card.LoginRequest:
-                    responseBody = LoginRequestResponse();
-                    break;
                 case Card.ThrottleWarning:
                     responseBody = ThrottleWarningResponse();
                     break;
@@ -295,7 +312,7 @@ namespace Catering
 
         private async Task<AdaptiveCardInvokeResponse> ProcessNominalOAuth(ITurnContext turnContext)
         {
-            var result = await _botAppHandler.GetUserTokenAsync(turnContext, _userState);
+            var result = await _nonSsoHandler.GetUserTokenAsync(turnContext, _userState);
 
             if (result.InvokeResponse != null)
             {
@@ -332,6 +349,7 @@ namespace Catering
         private async Task<AdaptiveCardInvokeResponse> ProcessSignout(ITurnContext turnContext)
         {
             var result = await _botAppHandler.SignoutAsync(turnContext, _userState);
+            result = await _nonSsoHandler.SignoutAsync(turnContext, _userState);
 
             return result.InvokeResponse;
         }
@@ -458,12 +476,6 @@ namespace Catering
         {
             //return CardResponse("BlandCard.json");
             return new AdaptiveCardInvokeResponse() { StatusCode = 200, Type = AdaptiveCard.ContentType, Value = new CardResource("BlandCard.json").AsJObject() };
-        }
-
-        private AdaptiveCardInvokeResponse LoginRequestResponse()
-        {
-            //return new AdaptiveCardInvokeResponse() { StatusCode = 401, Type = "application/vnd.microsoft.activity.loginRequest", Value = new OAuthCard() { ConnectionName = "Foo", Text = "Sign In", Buttons = new List<CardAction>() { new CardAction() { Value = "www.contoso.com/login.html", Text = "Sign In", Type = ActionTypes.Signin } } } };
-            return new AdaptiveCardInvokeResponse() { StatusCode = 401, Type = AdaptiveCardsConstants.LoginRequest, Value = "beep" };
         }
 
         private AdaptiveCardInvokeResponse ThrottleWarningResponse()

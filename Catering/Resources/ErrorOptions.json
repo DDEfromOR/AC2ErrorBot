@@ -54,16 +54,6 @@
                 {
                   "type": "Action.Execute",
                   "verb": "err",
-                  "title": "Status 401 with Login Request",
-                  "data": {
-                    "nextCardToSend": 7,
-                    "currentCard": 11,
-                    "option": "loginRequest"
-                  }
-                },
-                {
-                  "type": "Action.Execute",
-                  "verb": "err",
                   "title": "Status 429 Throttle Warning",
                   "data": {
                     "nextCardToSend": 8,
