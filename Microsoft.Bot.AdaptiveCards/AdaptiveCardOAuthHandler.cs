@@ -147,7 +147,7 @@ namespace Microsoft.Bot.AdaptiveCards
             // try to get the user token, otherwise return a login request
             TokenResponse tokenResponse = null;
             var valueObject = turnContext.Activity.Value as JObject;
-            var magicCodeValue = valueObject.GetValue("magicCode", StringComparison.Ordinal)?.ToString();
+            var stateValueNominalAuth = valueObject.GetValue("state", StringComparison.Ordinal)?.ToString();
             var authenticationObject = valueObject.GetValue("authentication", StringComparison.Ordinal)?.ToObject<TokenExchangeInvokeRequest>();
 
             if (authenticationObject != null)
@@ -162,10 +162,11 @@ namespace Microsoft.Bot.AdaptiveCards
                                 Token = authenticationObject.Token,
                             },
                             cancellationToken).ConfigureAwait(false);
+
             }
-            else if (!string.IsNullOrEmpty(magicCodeValue))
+            else if (!string.IsNullOrEmpty(stateValueNominalAuth))
             {
-                tokenResponse = await adapter.GetUserTokenAsync(turnContext, _appCredentials, _connectionName, magicCodeValue, cancellationToken).ConfigureAwait(false);
+                tokenResponse = await adapter.GetUserTokenAsync(turnContext, _appCredentials, _connectionName, stateValueNominalAuth, cancellationToken).ConfigureAwait(false);
             }
 
             if (tokenResponse != null && !string.IsNullOrWhiteSpace(tokenResponse.Token))
