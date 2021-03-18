@@ -176,7 +176,7 @@ namespace Microsoft.Bot.AdaptiveCards
                         {
                             StatusCode = 401,
                             Type = AdaptiveCardsConstants.InvalidAuthCode,
-                            Value = stateValueNominalAuth.ToString()
+                            Value = "Please enter correct auth code."
                         }
                     };
                 }
