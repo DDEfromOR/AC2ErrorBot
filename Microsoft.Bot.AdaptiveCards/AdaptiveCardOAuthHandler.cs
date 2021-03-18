@@ -167,6 +167,19 @@ namespace Microsoft.Bot.AdaptiveCards
             else if (!string.IsNullOrEmpty(stateValueNominalAuth))
             {
                 tokenResponse = await adapter.GetUserTokenAsync(turnContext, _appCredentials, _connectionName, stateValueNominalAuth, cancellationToken).ConfigureAwait(false);
+
+                if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.Token))
+                {
+                    return new AdaptiveCardOAuthResult()
+                    {
+                        InvokeResponse = new AdaptiveCardInvokeResponse()
+                        {
+                            StatusCode = 401,
+                            Type = AdaptiveCardsConstants.InvalidAuthCode,
+                            Value = stateValueNominalAuth.ToString()
+                        }
+                    };
+                }
             }
 
             if (tokenResponse != null && !string.IsNullOrWhiteSpace(tokenResponse.Token))
