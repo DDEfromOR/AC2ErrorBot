@@ -143,10 +143,44 @@ namespace Microsoft.Bot.AdaptiveCards
                     }
                 }
             }
-            
-            // try to get the user token, otherwise return a login request
 
-            var tokenResponse = await adapter.GetUserTokenAsync(turnContext, _appCredentials, _connectionName, null, cancellationToken).ConfigureAwait(false);
+            // try to get the user token, otherwise return a login request
+            TokenResponse tokenResponse = null;
+            var valueObject = turnContext.Activity.Value as JObject;
+            var stateValueNominalAuth = valueObject.GetValue("state", StringComparison.Ordinal)?.ToString();
+            var authenticationObject = valueObject.GetValue("authentication", StringComparison.Ordinal)?.ToObject<TokenExchangeInvokeRequest>();
+
+            if (authenticationObject != null)
+            {
+                tokenResponse = await adapter.ExchangeTokenAsync(
+                            turnContext,
+                            _appCredentials,
+                            _connectionName,
+                            turnContext.Activity.From.Id,
+                            new TokenExchangeRequest
+                            {
+                                Token = authenticationObject.Token,
+                            },
+                            cancellationToken).ConfigureAwait(false);
+
+            }
+            else if (!string.IsNullOrEmpty(stateValueNominalAuth))
+            {
+                tokenResponse = await adapter.GetUserTokenAsync(turnContext, _appCredentials, _connectionName, stateValueNominalAuth, cancellationToken).ConfigureAwait(false);
+
+                if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.Token))
+                {
+                    return new AdaptiveCardOAuthResult()
+                    {
+                        InvokeResponse = new AdaptiveCardInvokeResponse()
+                        {
+                            StatusCode = 401,
+                            Type = AdaptiveCardsConstants.InvalidAuthCode,
+                            Value = "Please enter correct auth code."
+                        }
+                    };
+                }
+            }
 
             if (tokenResponse != null && !string.IsNullOrWhiteSpace(tokenResponse.Token))
             {

@@ -61,7 +61,7 @@ namespace Catering
                 _configuration.GetSection("MicrosoftAppPassword")?.Value);
             _botAppHandler = new AdaptiveCardOAuthHandler("BotApp", "Sign-In To Bot App", "Sign-In", oauthCredential);
             _nonSsoHandler = new AdaptiveCardOAuthHandler("NonSsoApp", "Sign-In To Bot App", "Sign-In", oauthCredential);
-    }
+        }
 
         public override async Task OnTurnAsync(ITurnContext turnContext, CancellationToken cancellationToken = default(CancellationToken))
         {
