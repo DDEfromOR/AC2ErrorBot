@@ -45,7 +45,7 @@ namespace Catering
         private readonly CateringRecognizer _cateringRecognizer;
         private readonly Dialog _dialog;
         private readonly AdaptiveCardOAuthHandler _botAppHandler = new AdaptiveCardOAuthHandler("BotApp", "Sign-In To Bot App", "Sign-In");
-        private readonly AdaptiveCardOAuthHandler _nonSsoHandler = new AdaptiveCardOAuthHandler("NonSsoApp", "Sign-In To Bot App", "Sign-In");
+        private readonly AdaptiveCardOAuthHandler _nonSsoHandler = new AdaptiveCardOAuthHandler("NonSSOBotApp", "Sign-In To Bot App", "Sign-In");
         private readonly IConfiguration _configuration;
 
         public CateringBot(IConfiguration configuration, UserState userState, CateringDb cateringDb, CateringRecognizer cateringRecognizer, TDialog dialog)
@@ -60,7 +60,7 @@ namespace Catering
                 _configuration.GetSection("MicrosoftAppId")?.Value,
                 _configuration.GetSection("MicrosoftAppPassword")?.Value);
             _botAppHandler = new AdaptiveCardOAuthHandler("BotApp", "Sign-In To Bot App", "Sign-In", oauthCredential);
-            _nonSsoHandler = new AdaptiveCardOAuthHandler("NonSsoApp", "Sign-In To Bot App", "Sign-In", oauthCredential);
+            _nonSsoHandler = new AdaptiveCardOAuthHandler("NonSSOBotApp", "Sign-In To Bot App", "Sign-In", oauthCredential);
         }
 
         public override async Task OnTurnAsync(ITurnContext turnContext, CancellationToken cancellationToken = default(CancellationToken))
