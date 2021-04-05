@@ -163,6 +163,18 @@ namespace Microsoft.Bot.AdaptiveCards
                             },
                             cancellationToken).ConfigureAwait(false);
 
+                if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.Token))
+                {
+                    return new AdaptiveCardOAuthResult()
+                    {
+                        InvokeResponse = new AdaptiveCardInvokeResponse()
+                        {
+                            StatusCode = 412,
+                            Type = AdaptiveCardsConstants.PreconditionFailure,
+                            Value = "Precondition failure. Please try Nominal OAuth to consent to required permissions first."
+                        }
+                    };
+                }
             }
             else if (!string.IsNullOrEmpty(stateValueNominalAuth))
             {
