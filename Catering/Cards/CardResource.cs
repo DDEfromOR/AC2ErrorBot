@@ -31,8 +31,8 @@ namespace Catering.Cards
             var cardJson = AsJson();
             var cardData = JsonConvert.SerializeObject(data);
 
-            var transformer = new AdaptiveTransformer();
-            return transformer.Transform(cardJson, cardData);
+            var template = new AdaptiveCardTemplate(cardJson);
+            return template.Expand(cardData);
         }
 
         public object AsJObject()

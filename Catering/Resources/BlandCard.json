@@ -1,6 +1,5 @@
 ﻿{
   "type": "AdaptiveCard",
-  "appId": "11111111-1111-1111-1111-111111111111",
   "body": [
     {
       "type": "TextBlock",
@@ -20,16 +19,13 @@
         {
           "type": "Action.Execute",
           "title": "Go Back",
-          "verb": "err",
+          "verb": "back",
           "data": {
-            "nextCardToSend": 11,
-            "currentCard": 12,
-            "option": ""
           }
         }
       ]
     }
   ],
   "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-  "version": "2.3"
+  "version": "1.4"
 }
